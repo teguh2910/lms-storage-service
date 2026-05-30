@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"lms-storage-service/internal/config"
+	storagesDomain "lms-storage-service/internal/domain/storages"
 	"lms-storage-service/internal/middleware"
 	"lms-storage-service/internal/pkg/db/postgres"
 	"lms-storage-service/internal/pkg/db/redis"
@@ -52,6 +53,14 @@ func main() {
 	}
 	log.Print("connecting to redis cache")
 
+	// create S3 client
+	s3Client, err := storagesDomain.NewS3Client()
+	if err != nil {
+		log.Fatalf("cannot create S3 client: %v", err)
+		return
+	}
+	log.Print("connecting to AWS S3")
+
 	// listen tcp port
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -71,7 +80,7 @@ func main() {
 	grpcServer := grpc.NewServer(serverOptions...)
 
 	// routing grpc services
-	route.GrpcRoute(grpcServer, db, log, cache)
+	route.GrpcRoute(grpcServer, db, log, cache, s3Client)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %s", err)

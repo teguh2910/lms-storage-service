@@ -40,12 +40,17 @@ func (a *Context) Stream() grpc.StreamServerInterceptor {
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		_, err := a.context(stream.Context())
+		ctx, err := a.context(stream.Context())
 		if err != nil {
 			return err
 		}
 
-		return handler(srv, stream)
+		wrappedStream := &wrappedServerStream{
+			ServerStream: stream,
+			ctx:          ctx,
+		}
+
+		return handler(srv, wrappedStream)
 	}
 }
 
@@ -84,4 +89,14 @@ func (a Context) context(ctx context.Context) (context.Context, error) {
 
 	ctx = metadata.NewOutgoingContext(ctx, mdOutgoing)
 	return ctx, nil
+}
+
+// wrappedServerStream wraps a grpc.ServerStream with a custom context
+type wrappedServerStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (w *wrappedServerStream) Context() context.Context {
+	return w.ctx
 }
